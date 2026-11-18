@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agenda de Citas</title>
+<style>
+:root{
+  --bg:#faf7f5; --card:#ffffff; --ink:#2b2326; --muted:#7a6d72; --line:#eadfe2;
+  --brand:#b4416b; --brand-ink:#ffffff; --soft:#f7e6ec; --ok:#2e7d4f; --okbg:#e5f4ea;
+  --warn:#9a6a00; --warnbg:#fff3d6; --bad:#b3261e; --badbg:#fde7e5; --off:#f1eeee;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{background:var(--brand);color:var(--brand-ink);padding:14px 16px}
+header h1{margin:0;font-size:1.2rem}
+header p{margin:2px 0 0;opacity:.9;font-size:.9rem}
+main{max-width:720px;margin:0 auto;padding:16px}
+.demo{display:flex;gap:8px;justify-content:center;padding:8px;background:#2b2326;flex-wrap:wrap}
+.demo a{color:#fff;text-decoration:none;font-size:.85rem;padding:4px 10px;border-radius:99px;border:1px solid #fff5}
+.demo a.on{background:#fff;color:#2b2326}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+h2{font-size:1.1rem;margin:0 0 10px}
+h3{font-size:1rem;margin:14px 0 8px}
+.muted{color:var(--muted);font-size:.9rem}
+.menu{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.menu button{display:flex;flex-direction:column;align-items:center;gap:4px;padding:16px 8px;border:2px solid var(--line);border-radius:14px;background:#fff;cursor:pointer;font:inherit;color:inherit}
+.menu button:hover,.menu button.sel{border-color:var(--brand);background:var(--soft)}
+.menu .ic{font-size:2rem}
+.menu .du{font-size:.8rem;color:var(--muted)}
+button.btn{font:inherit;border:0;border-radius:10px;padding:11px 16px;cursor:pointer;background:var(--brand);color:var(--brand-ink);font-weight:600}
+button.btn.sec{background:#fff;color:var(--ink);border:1px solid var(--line)}
+button.btn.ok{background:var(--ok)}
+button.btn.bad{background:#fff;color:var(--bad);border:1px solid var(--bad)}
+button.btn:disabled{opacity:.45;cursor:not-allowed}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}
+.cal .dn{font-size:.75rem;color:var(--muted);padding:4px 0}
+.cal button{font:inherit;aspect-ratio:1;border-radius:10px;border:1px solid var(--line);background:#fff;cursor:pointer;color:var(--ink)}
+.cal button:disabled{background:var(--off);color:#bbb;border-color:transparent;cursor:default}
+.cal button.sel{background:var(--brand);color:#fff;border-color:var(--brand)}
+.cal button.hoy{outline:2px solid var(--brand);outline-offset:-2px}
+.calhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.calhead button{font:inherit;border:1px solid var(--line);background:#fff;border-radius:8px;padding:4px 12px;cursor:pointer}
+.slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px}
+.slots button{font:inherit;padding:10px 0;border-radius:10px;border:1px solid var(--line);background:#fff;cursor:pointer}
+.slots button.sel{background:var(--brand);color:#fff;border-color:var(--brand)}
+label{display:block;font-weight:600;font-size:.9rem;margin:10px 0 4px}
+input,select,textarea{font:inherit;width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+input[type=checkbox]{width:auto}
+.chk{display:flex;gap:8px;align-items:flex-start;font-weight:400}
+.err{color:var(--bad);font-size:.85rem;margin-top:4px}
+.badge{display:inline-block;padding:2px 10px;border-radius:99px;font-size:.8rem;font-weight:600}
+.b-pendiente{background:var(--warnbg);color:var(--warn)}
+.b-confirmada{background:var(--okbg);color:var(--ok)}
+.b-rechazada,.b-cancelada{background:var(--badbg);color:var(--bad)}
+.tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.tabs a{text-decoration:none;color:var(--ink);padding:8px 14px;border-radius:99px;background:#fff;border:1px solid var(--line);font-size:.95rem}
+.tabs a.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+.cnt{background:var(--bad);color:#fff;border-radius:99px;padding:0 7px;font-size:.75rem;margin-left:4px}
+.item{border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px}
+.item .t{font-weight:700}
+.srv{display:grid;grid-template-columns:64px minmax(0,1fr) 120px 36px;gap:6px;align-items:center;margin-bottom:8px}
+.srv select[data-f="icono"]{font-size:1.4rem;padding:4px 2px;text-align:center}
+.srv button{border:0;background:none;font-size:1.1rem;cursor:pointer;color:var(--bad)}
+.dia{display:grid;grid-template-columns:110px minmax(0,1fr) minmax(0,1fr);gap:6px;align-items:center;margin-bottom:6px}
+.dia input,.srv input,.srv select{min-width:0}
+.dia input[type=time]{padding:8px 6px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chips button{font:inherit;font-size:.85rem;border:1px dashed var(--brand);color:var(--brand);background:#fff;border-radius:99px;padding:4px 10px;cursor:pointer}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#2b2326;color:#fff;padding:12px 18px;border-radius:12px;box-shadow:0 6px 24px #0004;max-width:90vw;z-index:9}
+.resumen{background:var(--soft);border-radius:12px;padding:12px;margin:10px 0}
+@media (max-width:480px){
+  .srv{grid-template-columns:64px minmax(0,1fr) 32px;grid-template-areas:"ic nom del" "ic dur del";padding-bottom:8px;border-bottom:1px solid var(--line)}
+  .srv [data-f="icono"]{grid-area:ic;height:100%}.srv [data-f="nombre"]{grid-area:nom}.srv [data-f="min"]{grid-area:dur}.srv button{grid-area:del}
+  .dia{grid-template-columns:92px minmax(0,1fr) minmax(0,1fr);gap:4px}
+  .dia .chk{font-size:.9rem}
+}
+</style>
+</head>
+<body>
+<nav class="demo" id="demo">
+  <a href="#/reservar" data-r="reservar">Vista clienta</a>
+  <a href="#/salon" data-r="salon">Vista salón</a>
+</nav>
+<header><h1 id="hNombre">Agenda</h1><p id="hSub"></p></header>
+<main id="app"></main>
+<div id="toast" class="toast" hidden></div>
+
+<script>
+/* ===== Datos (versión de prueba: se guardan en este navegador) ===== */
+const K_CFG = "agenda.config", K_CITAS = "agenda.citas";
+const SUGERIDOS = [
+  ["💇","Corte de cabello",30],["💈","Barbería",30],["🧔","Barba",20],["💅","Uñas manos",60],
+  ["🦶","Uñas pies",60],["🎨","Tintura",120],["✨","Peinado",45],["👁️","Cejas",20],
+  ["💆","Tratamiento capilar",60],["💄","Maquillaje",60],["🌀","Alisado / keratina",180]
+];
+const ICONOS = ["💇","💈","🧔","💅","🦶","🎨","✨","👁️","💆","💄","🌀","✂️","🌸","⭐"];
+const DIAS = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
+const MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+
+function cfgInicial(){
+  const h = {};
+  for (let d=0; d<7; d++) h[d] = {abierto: d!==0, desde:"08:00", hasta: d===6 ? "14:00" : "18:00"};
+  return {
+    nombre:"Mi Salón", mensaje:"Escoge el servicio y la hora que te sirve.",
+    servicios:[
+      {id:id(),icono:"💇",nombre:"Corte de cabello",min:30},
+      {id:id(),icono:"💈",nombre:"Barbería",min:30},
+      {id:id(),icono:"💅",nombre:"Uñas manos",min:60},
+      {id:id(),icono:"🎨",nombre:"Tintura",min:120}],
+    horario:h, descanso:{activo:true,desde:"12:00",hasta:"13:00"},
+    intervalo:30, simultaneas:1, diasAdelante:30, avisoMinHoras:2
+  };
+}
+function leer(k, def){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch(e){ return def; } }
+function guardar(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch(e){ toast("No se pudo guardar en este navegador."); return false; } }
+let cfgMem = null;
+function cfg(){
+  const g = leer(K_CFG, null); if (g) return g;
+  if (!cfgMem){ cfgMem = cfgInicial(); guardar(K_CFG, cfgMem); }
+  return cfgMem;
+}
+function citas(){ return leer(K_CITAS, []); }
+function id(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+/* ===== Utilidades ===== */
+const $ = s => document.querySelector(s);
+function esc(s){ return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+const pad = n => String(n).padStart(2,"0");
+const ymd = d => d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const deYmd = s => { const [a,m,d] = s.split("-").map(Number); return new Date(a,m-1,d); };
+const aMin = s => { const [h,m] = s.split(":").map(Number); return h*60+m; };
+const deMin = m => pad(Math.floor(m/60))+":"+pad(m%60);
+function hora12(s){ let [h,m] = s.split(":").map(Number); const ap = h<12?"a. m.":"p. m."; h = h%12||12; return h+":"+pad(m)+" "+ap; }
+function fechaLarga(s){ const d = deYmd(s); return DIAS[d.getDay()]+" "+d.getDate()+" de "+MESES[d.getMonth()]; }
+function durTxt(m){ return m<60 ? m+" min" : (m%60 ? Math.floor(m/60)+" h "+m%60+" min" : (m/60)+(m===60?" hora":" horas")); }
+function toast(t){ const e = $("#toast"); e.textContent = t; e.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(()=>e.hidden=true, 3500); }
+
+/* ===== Cálculo de horas libres ===== */
+function horasLibres(fecha, min, ignorarId){
+  const c = cfg(), d = deYmd(fecha), h = c.horario[d.getDay()];
+  if (!h || !h.abierto) return [];
+  const ini = aMin(h.desde), fin = aMin(h.hasta), paso = Math.max(5, +c.intervalo||30);
+  const ahora = new Date(), limite = ahora.getTime() + (+c.avisoMinHoras||0)*3600e3;
+  const ocupadas = citas().filter(x => x.fecha===fecha && (x.estado==="pendiente"||x.estado==="confirmada") && x.id!==ignorarId);
+  const res = [];
+  for (let t = ini; t + min <= fin; t += paso){
+    if (c.descanso && c.descanso.activo){
+      const a = aMin(c.descanso.desde), b = aMin(c.descanso.hasta);
+      if (t < b && t + min > a) continue;
+    }
+    const inicio = new Date(d.getFullYear(), d.getMonth(), d.getDate(), Math.floor(t/60), t%60);
+    if (inicio.getTime() < limite) continue;
+    const cruces = ocupadas.filter(x => { const a = aMin(x.hora); return t < a + x.min && t + min > a; }).length;
+    if (cruces >= Math.max(1, +c.simultaneas||1)) continue;
+    res.push(deMin(t));
+  }
+  return res;
+}
+
+/* ===== Router ===== */
+function ruta(){ return (location.hash.replace(/^#\/?/,"") || "reservar").split("/"); }
+function render(){
+  const r = ruta(), c = cfg();
+  $("#hNombre").textContent = c.nombre || "Agenda";
+  document.querySelectorAll("#demo a").forEach(a => a.classList.toggle("on", r[0]===a.dataset.r));
+  if (r[0]==="salon") return vistaSalon(r[1]||"solicitudes");
+  if (r[0]==="cita") return vistaCita(r[1]);
+  return vistaReservar();
+}
+addEventListener("hashchange", () => { estado = {}; borrador = null; render(); });
+addEventListener("storage", e => {
+  if (e.key !== K_CITAS && e.key !== K_CFG) return;
+  const r = ruta();
+  if (r[0]==="salon" && e.key===K_CITAS){
+    const antes = JSON.parse(e.oldValue||"[]").length, ahora = JSON.parse(e.newValue||"[]").length;
+    if (ahora > antes){ toast("🔔 Nueva solicitud de cita"); avisoSistema("Nueva solicitud de cita"); }
+  }
+  if (r[0]==="cita" && e.key===K_CITAS) toast("Tu cita se actualizó");
+  if (!(r[0]==="reservar" && estado.paso==="datos")) render();
+});
+function avisoSistema(t){ try { if ("Notification" in window && Notification.permission==="granted") new Notification(t); } catch(e){} }
+
+/* ===== Vista clienta: reservar ===== */
+let estado = {};
+function vistaReservar(){
+  const c = cfg(); $("#hSub").textContent = c.mensaje || "";
+  const srv = c.servicios.filter(s => s.nombre);
+  const diasAbiertos = Object.values(c.horario).some(h => h.abierto);
+  if (!srv.length || !diasAbiertos){
+    $("#app").innerHTML = `<div class="card"><h2>Pronto podrás reservar aquí</h2><p class="muted">El salón todavía está configurando sus servicios y horarios.</p></div>`;
+    return;
+  }
+  const s = srv.find(x => x.id===estado.srv);
+  let h = `<div class="card"><h2>1. ¿Qué te quieres hacer?</h2><div class="menu">` +
+    srv.map(x => `<button data-srv="${x.id}" class="${x.id===estado.srv?"sel":""}"><span class="ic">${esc(x.icono||"✨")}</span><span>${esc(x.nombre)}</span><span class="du">${durTxt(x.min)}</span></button>`).join("") +
+    `</div></div>`;
+  if (s){
+    h += `<div class="card"><h2>2. Escoge el día</h2>${calendario(s.min)}</div>`;
+    if (estado.fecha){
+      const libres = horasLibres(estado.fecha, s.min);
+      h += `<div class="card"><h2>3. Escoge la hora</h2><p class="muted">${fechaLarga(estado.fecha)}</p>` +
+        (libres.length ? `<div class="slots">` + libres.map(t => `<button data-hora="${t}" class="${t===estado.hora?"sel":""}">${hora12(t)}</button>`).join("") + `</div>`
+                       : `<p>Ya no quedan horas libres este día. Prueba con otro.</p>`) + `</div>`;
+    }
+    if (estado.fecha && estado.hora) h += formDatos(s);
+  }
+  $("#app").innerHTML = h;
+  document.querySelectorAll("[data-srv]").forEach(b => b.onclick = () => { estado = {srv:b.dataset.srv, mes:estado.mes}; render(); bajar(".cal"); });
+  document.querySelectorAll("[data-dia]").forEach(b => b.onclick = () => { estado.fecha = b.dataset.dia; estado.hora = null; render(); bajar(".slots"); });
+  document.querySelectorAll("[data-mes]").forEach(b => b.onclick = () => { estado.mes = (estado.mes||0) + (+b.dataset.mes); render(); });
+  document.querySelectorAll("[data-hora]").forEach(b => b.onclick = () => { estado.hora = b.dataset.hora; estado.paso="datos"; render(); bajar("#fDatos"); });
+  const f = $("#fDatos"); if (f) f.onsubmit = enviarSolicitud;
+}
+function bajar(sel){ const e = $(sel); if (e) e.scrollIntoView({behavior:"smooth", block:"center"}); }
+
+function calendario(min){
+  const c = cfg(), hoy = new Date(); hoy.setHours(0,0,0,0);
+  const tope = new Date(hoy); tope.setDate(tope.getDate() + (+c.diasAdelante||30));
+  const off = estado.mes||0, base = new Date(hoy.getFullYear(), hoy.getMonth()+off, 1);
+  const primero = (base.getDay()+6)%7, dimes = new Date(base.getFullYear(), base.getMonth()+1, 0).getDate();
+  let h = `<div class="calhead"><button data-mes="-1" ${off<=0?"disabled":""} aria-label="Mes anterior">‹</button><strong>${MESES[base.getMonth()]} ${base.getFullYear()}</strong><button data-mes="1" ${new Date(base.getFullYear(),base.getMonth()+1,1)>tope?"disabled":""} aria-label="Mes siguiente">›</button></div><div class="cal">`;
+  h += ["L","M","M","J","V","S","D"].map(d => `<div class="dn">${d}</div>`).join("");
+  for (let i=0; i<primero; i++) h += `<div></div>`;
+  for (let d=1; d<=dimes; d++){
+    const f = new Date(base.getFullYear(), base.getMonth(), d), k = ymd(f);
+    const ok = f >= hoy && f <= tope && horasLibres(k, min).length > 0;
+    h += `<button ${ok?`data-dia="${k}"`:"disabled"} class="${k===estado.fecha?"sel":""} ${f.getTime()===hoy.getTime()?"hoy":""}">${d}</button>`;
+  }
+  return h + `</div><p class="muted" style="margin-top:8px">Los días en gris no tienen horas libres.</p>`;
+}
+
+function formDatos(s){
+  const g = leer("agenda.misdatos", {});
+  return `<form class="card" id="fDatos" novalidate><h2>4. Tus datos</h2>
+    <div class="resumen"><strong>${esc(s.icono)} ${esc(s.nombre)}</strong><br>${fechaLarga(estado.fecha)} · ${hora12(estado.hora)} · ${durTxt(s.min)}</div>
+    <label for="dNom">Nombre</label><input id="dNom" autocomplete="name" value="${esc(g.nombre)}" maxlength="60">
+    <div class="err" id="eNom"></div>
+    <label for="dCel">Celular</label><input id="dCel" inputmode="tel" autocomplete="tel" placeholder="300 123 4567" value="${esc(g.celular)}" maxlength="16">
+    <div class="err" id="eCel"></div>
+    <label for="dMail">Correo <span class="muted">(opcional, para enviarte la confirmación)</span></label><input id="dMail" type="email" autocomplete="email" value="${esc(g.correo)}" maxlength="80">
+    <div class="err" id="eMail"></div>
+    <label for="dNota">Nota para el salón <span class="muted">(opcional)</span></label><textarea id="dNota" rows="2" maxlength="200"></textarea>
+    <label class="chk"><input type="checkbox" id="dOk"> <span>Autorizo al salón a usar mis datos solo para gestionar mi cita (Ley 1581 de 2012).</span></label>
+    <div class="err" id="eOk"></div>
+    <div class="row" style="margin-top:12px"><button class="btn" type="submit">Pedir la cita</button></div>
+    <p class="muted">El salón revisa tu solicitud y te confirma.</p></form>`;
+}
+
+function enviarSolicitud(ev){
+  ev.preventDefault();
+  const c = cfg(), s = c.servicios.find(x => x.id===estado.srv);
+  const nom = $("#dNom").value.trim().replace(/\s+/g," "), cel = $("#dCel").value.replace(/[\s\-().]/g,"").replace(/^\+?57/,"");
+  const mail = $("#dMail").value.trim(), nota = $("#dNota").value.trim();
+  let bien = true;
+  const marca = (e, t) => { $(e).textContent = t; if (t) bien = false; };
+  marca("#eNom", nom.length < 2 ? "Escribe tu nombre." : /[0-9]/.test(nom) ? "El nombre no lleva números." : "");
+  marca("#eCel", /^3\d{9}$/.test(cel) ? "" : "Escribe un celular de 10 dígitos que empiece por 3.");
+  marca("#eMail", !mail || /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(mail) ? "" : "Ese correo no parece correcto.");
+  marca("#eOk", $("#dOk").checked ? "" : "Necesitamos tu autorización para agendar.");
+  if (!bien) return;
+  if (!s || !horasLibres(estado.fecha, s.min).includes(estado.hora)){
+    toast("Esa hora se acaba de ocupar. Escoge otra."); estado.hora = null; estado.paso = null; render(); return;
+  }
+  const cita = {id:id(), servicioId:s.id, servicio:s.nombre, icono:s.icono, min:s.min, fecha:estado.fecha, hora:estado.hora,
+    nombre:nom, celular:cel, correo:mail, nota, estado:"pendiente", creada:new Date().toISOString()};
+  const todas = citas(); todas.push(cita);
+  if (!guardar(K_CITAS, todas)) return;
+  guardar("agenda.misdatos", {nombre:nom, celular:cel, correo:mail});
+  estado = {}; location.hash = "#/cita/" + cita.id;
+}
+
+/* ===== Vista clienta: estado de mi cita ===== */
+function vistaCita(cid){
+  const x = citas().find(c => c.id===cid); $("#hSub").textContent = "Tu cita";
+  if (!x){ $("#app").innerHTML = `<div class="card"><h2>No encontramos esa cita</h2><p><a href="#/reservar">Pedir una cita</a></p></div>`; return; }
+  const txt = {pendiente:"Tu solicitud llegó al salón. Te avisamos cuando la confirmen.",
+    confirmada:"¡Listo! El salón confirmó tu cita. Te esperamos.",
+    rechazada:"El salón no puede atenderte a esa hora." + (x.motivo ? " Motivo: " + x.motivo : "") + " Puedes pedir otra.",
+    cancelada:"Esta cita fue cancelada."}[x.estado];
+  $("#app").innerHTML = `<div class="card"><span class="badge b-${x.estado}">${x.estado[0].toUpperCase()+x.estado.slice(1)}</span>
+    <h2 style="margin-top:10px">${esc(x.icono)} ${esc(x.servicio)}</h2>
+    <p><strong>${fechaLarga(x.fecha)}</strong> a las <strong>${hora12(x.hora)}</strong> (${durTxt(x.min)})</p>
+    <p>${esc(txt)}</p>
+    <div class="row">
+      ${x.estado==="confirmada" ? `<button class="btn" id="bIcs">Agregar a mi calendario</button>` : ""}
+      ${x.estado==="pendiente"||x.estado==="confirmada" ? `<button class="btn bad" id="bCan">Cancelar mi cita</button>` : `<a href="#/reservar"><button class="btn">Pedir otra cita</button></a>`}
+    </div></div>`;
+  const bi = $("#bIcs"); if (bi) bi.onclick = () => bajarIcs(x);
+  const bc = $("#bCan"); if (bc) bc.onclick = () => { if (bc.dataset.seguro){ cambiarEstado(x.id,"cancelada"); } else { bc.dataset.seguro = 1; bc.textContent = "Toca otra vez para cancelar"; } };
+}
+function bajarIcs(x){
+  const f = x.fecha.replace(/-/g,""), ini = x.hora.replace(":","")+"00", fin = deMin(aMin(x.hora)+x.min).replace(":","")+"00";
+  const ics = ["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Agenda//ES","BEGIN:VEVENT","UID:"+x.id+"@agenda",
+    "DTSTART:"+f+"T"+ini,"DTEND:"+f+"T"+fin,"SUMMARY:"+x.servicio+" - "+cfg().nombre,
+    "BEGIN:VALARM","TRIGGER:-PT2H","ACTION:DISPLAY","DESCRIPTION:Recordatorio de tu cita","END:VALARM","END:VEVENT","END:VCALENDAR"].join("\r\n");
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([ics],{type:"text/calendar"})); a.download = "mi-cita.ics"; a.click();
+}
+function cambiarEstado(cid, est, motivo){
+  const t = citas(), x = t.find(c => c.id===cid); if (!x) return;
+  x.estado = est; if (motivo !== undefined) x.motivo = motivo; x.actualizada = new Date().toISOString();
+  guardar(K_CITAS, t); render();
+}
+
+/* ===== Vista salón ===== */
+function vistaSalon(tab){
+  const c = cfg(); $("#hSub").textContent = "Panel del salón";
+  const pend = citas().filter(x => x.estado==="pendiente").length;
+  let h = `<nav class="tabs">
+    <a href="#/salon/solicitudes" class="${tab==="solicitudes"?"on":""}">Solicitudes${pend?`<span class="cnt">${pend}</span>`:""}</a>
+    <a href="#/salon/agenda" class="${tab==="agenda"?"on":""}">Agenda</a>
+    <a href="#/salon/config" class="${tab==="config"?"on":""}">Configuración</a></nav>`;
+  if (tab==="config") h += vistaConfig(c);
+  else if (tab==="agenda") h += vistaAgenda();
+  else h += vistaSolicitudes();
+  $("#app").innerHTML = h;
+  if (tab==="config") enlazarConfig();
+  enlazarCitas();
+  if ("Notification" in window && Notification.permission==="default" && !vistaSalon.pidio){
+    vistaSalon.pidio = true; try { Notification.requestPermission(); } catch(e){}
+  }
+}
+function tarjetaCita(x, acciones){
+  return `<div class="item"><div class="row" style="justify-content:space-between"><span class="t">${esc(x.icono)} ${esc(x.servicio)}</span><span class="badge b-${x.estado}">${x.estado}</span></div>
+    <div>${fechaLarga(x.fecha)} · <strong>${hora12(x.hora)}</strong> – ${hora12(deMin(aMin(x.hora)+x.min))}</div>
+    <div>👤 ${esc(x.nombre)} · 📱 <a href="tel:${esc(x.celular)}">${esc(x.celular)}</a>${x.correo?` · ✉️ ${esc(x.correo)}`:""}</div>
+    ${x.nota?`<div class="muted">“${esc(x.nota)}”</div>`:""}
+    ${x.motivo?`<div class="muted">Motivo: ${esc(x.motivo)}</div>`:""}
+    ${acciones?`<div class="row" style="margin-top:8px">${acciones}</div>`:""}</div>`;
+}
+function vistaSolicitudes(){
+  const p = citas().filter(x => x.estado==="pendiente").sort((a,b) => (a.fecha+a.hora).localeCompare(b.fecha+b.hora));
+  if (!p.length) return `<div class="card"><h2>Sin solicitudes nuevas</h2><p class="muted">Cuando una clienta pida cita, aparece aquí para que la aceptes.</p></div>`;
+  return `<div class="card"><h2>Por confirmar (${p.length})</h2>` + p.map(x => tarjetaCita(x,
+    `<button class="btn ok" data-ac="${x.id}">Aceptar</button><button class="btn bad" data-re="${x.id}">Rechazar</button>`)).join("") + `</div>`;
+}
+let diaAgenda = ymd(new Date());
+function vistaAgenda(){
+  const del = citas().filter(x => x.fecha===diaAgenda && x.estado==="confirmada").sort((a,b) => a.hora.localeCompare(b.hora));
+  const prox = citas().filter(x => x.estado==="confirmada" && x.fecha>=ymd(new Date())).length;
+  return `<div class="card"><h2>Agenda</h2><div class="row"><button class="btn sec" data-dmove="-1">‹</button>
+    <input type="date" id="dAg" value="${diaAgenda}" style="max-width:180px"><button class="btn sec" data-dmove="1">›</button></div>
+    <h3>${fechaLarga(diaAgenda)}</h3>` +
+    (del.length ? del.map(x => tarjetaCita(x, `<button class="btn bad" data-ca="${x.id}">Cancelar</button>`)).join("") : `<p class="muted">No hay citas confirmadas este día.</p>`) +
+    `<p class="muted">Citas confirmadas de hoy en adelante: ${prox}</p></div>`;
+}
+function enlazarCitas(){
+  document.querySelectorAll("[data-ac]").forEach(b => b.onclick = () => {
+    const x = citas().find(c => c.id===b.dataset.ac);
+    const choque = citas().filter(o => o.id!==x.id && o.estado==="confirmada" && o.fecha===x.fecha && aMin(x.hora) < aMin(o.hora)+o.min && aMin(x.hora)+x.min > aMin(o.hora)).length;
+    if (choque >= Math.max(1, +cfg().simultaneas||1) && !b.dataset.seguro){ b.dataset.seguro = 1; b.textContent = "Se cruza con otra cita. ¿Aceptar igual?"; return; }
+    cambiarEstado(x.id, "confirmada"); toast("Cita confirmada");
+  });
+  document.querySelectorAll("[data-re]").forEach(b => b.onclick = () => {
+    const cont = b.parentElement;
+    if (cont.querySelector(".motivo")) return;
+    cont.insertAdjacentHTML("afterend", `<div class="motivo row" style="margin-top:8px"><input placeholder="Motivo (opcional), ej: ese día no hay cupo" maxlength="120" style="flex:1"><button class="btn bad">Rechazar</button></div>`);
+    const m = cont.nextElementSibling; m.querySelector("input").focus();
+    m.querySelector("button").onclick = () => { cambiarEstado(b.dataset.re, "rechazada", m.querySelector("input").value.trim()); toast("Solicitud rechazada"); };
+  });
+  document.querySelectorAll("[data-ca]").forEach(b => b.onclick = () => {
+    if (!b.dataset.seguro){ b.dataset.seguro = 1; b.textContent = "Toca otra vez para cancelar"; return; }
+    cambiarEstado(b.dataset.ca, "cancelada");
+  });
+  const da = $("#dAg"); if (da) da.onchange = () => { if (da.value){ diaAgenda = da.value; render(); } };
+  document.querySelectorAll("[data-dmove]").forEach(b => b.onclick = () => { const d = deYmd(diaAgenda); d.setDate(d.getDate() + +b.dataset.dmove); diaAgenda = ymd(d); render(); });
+}
+
+/* ===== Configuración del salón ===== */
+let borrador = null;
+function vistaConfig(c){
+  borrador = borrador || JSON.parse(JSON.stringify(c));
+  const b = borrador, usados = new Set(b.servicios.map(s => s.nombre.toLowerCase()));
+  const sug = SUGERIDOS.filter(s => !usados.has(s[1].toLowerCase()));
+  return `<form class="card" id="fCfg" novalidate>
+    <h2>Tu salón</h2>
+    <label for="cNom">Nombre del salón</label><input id="cNom" value="${esc(b.nombre)}" maxlength="50">
+    <label for="cMsg">Mensaje para las clientas</label><input id="cMsg" value="${esc(b.mensaje)}" maxlength="100">
+
+    <h3>Servicios que ofreces</h3>
+    <p class="muted">Escribe cada servicio y cuántos minutos te demoras. Así el calendario solo muestra horas en las que alcanzas.</p>
+    <div id="lSrv">${b.servicios.map((s,i) => `<div class="srv">
+      <select data-i="${i}" data-f="icono" aria-label="Ícono">${ICONOS.map(ic => `<option ${ic===s.icono?"selected":""}>${ic}</option>`).join("")}</select>
+      <input data-i="${i}" data-f="nombre" value="${esc(s.nombre)}" placeholder="Ej: Corte de cabello" maxlength="40" aria-label="Servicio">
+      <select data-i="${i}" data-f="min" aria-label="Duración">${[10,15,20,30,40,45,60,75,90,120,150,180,240].map(m => `<option value="${m}" ${m===+s.min?"selected":""}>${durTxt(m)}</option>`).join("")}</select>
+      <button type="button" data-del="${i}" aria-label="Quitar">✕</button></div>`).join("")}</div>
+    <div class="row" style="margin:6px 0 10px"><button type="button" class="btn sec" id="bAddSrv">+ Escribir otro servicio</button></div>
+    ${sug.length?`<p class="muted">O agrega uno de la lista (con su tiempo típico, lo puedes cambiar):</p><div class="chips">${sug.map(s => `<button type="button" data-sug="${esc(s[1])}">${s[0]} ${esc(s[1])} · ${durTxt(s[2])}</button>`).join("")}</div>`:""}
+    <div class="err" id="eSrv"></div>
+
+    <h3>Días y horas en que atiendes</h3>
+    ${[1,2,3,4,5,6,0].map(d => { const h = b.horario[d]; return `<div class="dia">
+      <label class="chk" style="margin:0"><input type="checkbox" data-d="${d}" data-f="abierto" ${h.abierto?"checked":""}> ${DIAS[d]}</label>
+      <input type="time" data-d="${d}" data-f="desde" value="${h.desde}" ${h.abierto?"":"disabled"} aria-label="${DIAS[d]} desde">
+      <input type="time" data-d="${d}" data-f="hasta" value="${h.hasta}" ${h.abierto?"":"disabled"} aria-label="${DIAS[d]} hasta"></div>`; }).join("")}
+    <div class="err" id="eHor"></div>
+    <label class="chk"><input type="checkbox" id="cDesc" ${b.descanso.activo?"checked":""}> Hora de almuerzo / descanso (no se reciben citas)</label>
+    <div class="row"><input type="time" id="cDescA" value="${b.descanso.desde}" style="max-width:150px"> a <input type="time" id="cDescB" value="${b.descanso.hasta}" style="max-width:150px"></div>
+    <div class="err" id="eDesc"></div>
+
+    <h3>Reglas</h3>
+    <label for="cInt">Las citas pueden empezar cada</label>
+    <select id="cInt">${[15,20,30,60].map(m => `<option value="${m}" ${m===+b.intervalo?"selected":""}>${m} minutos</option>`).join("")}</select>
+    <label for="cSim">Personas atendiendo a la vez</label>
+    <select id="cSim">${[1,2,3,4,5,6].map(n => `<option ${n===+b.simultaneas?"selected":""}>${n}</option>`).join("")}</select>
+    <label for="cDias">Se puede reservar con anticipación de hasta</label>
+    <select id="cDias">${[7,15,30,60,90].map(n => `<option value="${n}" ${n===+b.diasAdelante?"selected":""}>${n} días</option>`).join("")}</select>
+    <label for="cAviso">Aviso mínimo antes de la cita</label>
+    <select id="cAviso">${[0,1,2,3,6,12,24].map(n => `<option value="${n}" ${n===+b.avisoMinHoras?"selected":""}>${n===0?"Sin mínimo":n+(n===1?" hora":" horas")}</option>`).join("")}</select>
+
+    <div class="row" style="margin-top:16px"><button class="btn" type="submit">Guardar cambios</button><button type="button" class="btn sec" id="bDescartar">Descartar</button></div>
+  </form>`;
+}
+function leerFormCfg(){
+  const b = borrador;
+  b.nombre = $("#cNom").value.trim(); b.mensaje = $("#cMsg").value.trim();
+  document.querySelectorAll("#lSrv [data-i]").forEach(e => { const s = b.servicios[e.dataset.i]; s[e.dataset.f] = e.dataset.f==="min" ? +e.value : (e.dataset.f==="nombre" ? e.value.trim() : e.value); });
+  document.querySelectorAll("[data-d]").forEach(e => { const h = b.horario[e.dataset.d]; h[e.dataset.f] = e.type==="checkbox" ? e.checked : e.value; });
+  b.descanso = {activo:$("#cDesc").checked, desde:$("#cDescA").value, hasta:$("#cDescB").value};
+  b.intervalo = +$("#cInt").value; b.simultaneas = +$("#cSim").value; b.diasAdelante = +$("#cDias").value; b.avisoMinHoras = +$("#cAviso").value;
+}
+function enlazarConfig(){
+  const re = () => { leerFormCfg(); render(); };
+  $("#bAddSrv").onclick = () => { leerFormCfg(); borrador.servicios.push({id:id(), icono:"✨", nombre:"", min:30}); render(); const ins = document.querySelectorAll('#lSrv [data-f="nombre"]'); ins[ins.length-1].focus(); };
+  document.querySelectorAll("[data-sug]").forEach(b => b.onclick = () => { leerFormCfg(); const s = SUGERIDOS.find(x => x[1]===b.dataset.sug); borrador.servicios.push({id:id(), icono:s[0], nombre:s[1], min:s[2]}); render(); });
+  document.querySelectorAll("[data-del]").forEach(b => b.onclick = () => { leerFormCfg(); borrador.servicios.splice(+b.dataset.del,1); render(); });
+  document.querySelectorAll('[data-f="abierto"]').forEach(e => e.onchange = re);
+  $("#bDescartar").onclick = () => { borrador = null; render(); toast("Cambios descartados"); };
+  $("#fCfg").onsubmit = ev => {
+    ev.preventDefault(); leerFormCfg(); const b = borrador; let bien = true;
+    const marca = (e, t) => { $(e).textContent = t; if (t) bien = false; };
+    const llenos = b.servicios.filter(s => s.nombre);
+    const nombres = llenos.map(s => s.nombre.toLowerCase());
+    marca("#eSrv", !llenos.length ? "Agrega al menos un servicio." : nombres.length !== new Set(nombres).size ? "Hay dos servicios con el mismo nombre." : "");
+    const malos = [0,1,2,3,4,5,6].filter(d => b.horario[d].abierto && (!b.horario[d].desde || !b.horario[d].hasta || aMin(b.horario[d].desde) >= aMin(b.horario[d].hasta)));
+    marca("#eHor", !Object.values(b.horario).some(h => h.abierto) ? "Marca al menos un día en que atiendes." : malos.length ? "Revisa la hora de " + malos.map(d => DIAS[d]).join(", ") + ": la hora de cierre debe ser después de la de apertura." : "");
+    marca("#eDesc", b.descanso.activo && (!b.descanso.desde || !b.descanso.hasta || aMin(b.descanso.desde) >= aMin(b.descanso.hasta)) ? "El descanso debe terminar después de empezar." : "");
+    if (!b.nombre){ b.nombre = "Mi Salón"; }
+    if (!bien){ toast("Revisa lo que está en rojo"); return; }
+    b.servicios = llenos;
+    if (guardar(K_CFG, b)){ borrador = null; toast("Configuración guardada ✔"); render(); }
+  };
+}
+
+render();
+</script>
+</body>
+</html>
