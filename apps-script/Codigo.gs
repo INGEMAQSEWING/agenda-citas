@@ -92,7 +92,7 @@ function leerCfg(){
 function guardarCfg(c){
   const hora = /^\d{2}:\d{2}$/;
   if (!c || !Array.isArray(c.servicios) || !c.servicios.length || c.servicios.length > 60) throw new Error("Revisa la lista de servicios");
-  c.servicios = c.servicios.map(s => ({id:String(s.id).slice(0,20), icono:String(s.icono||"✨").slice(0,4), nombre:String(s.nombre||"").trim().slice(0,40), min:Math.min(600, Math.max(5, parseInt(s.min,10)||30))})).filter(s => s.nombre);
+  c.servicios = c.servicios.map(s => ({id:/^[a-z0-9]{1,20}$/i.test(String(s.id)) ? String(s.id) : Utilities.getUuid().replace(/-/g, "").slice(0, 12), icono:String(s.icono||"✨").slice(0,4), nombre:String(s.nombre||"").trim().slice(0,40), min:Math.min(600, Math.max(5, parseInt(s.min,10)||30))})).filter(s => s.nombre);
   for (let d = 0; d < 7; d++){ const x = c.horario && c.horario[d]; if (!x || !hora.test(x.desde) || !hora.test(x.hasta)) throw new Error("Revisa el horario"); }
   c.nombre = String(c.nombre || "Mi Salón").slice(0,50); c.mensaje = String(c.mensaje || "").slice(0,100);
   c.intervalo = [15,20,30,60].indexOf(+c.intervalo) >= 0 ? +c.intervalo : 30;
@@ -154,9 +154,16 @@ function pedir(d){
     return {ok:true, id:cita.id, token:cita.token};
   } finally { lock.releaseLock(); }
 }
+/** Clienta: siempre exige el código secreto de su cita. */
 function buscar(id, token){
   const x = todas().filter(c => c.id === String(id || ""))[0];
-  if (!x || (token !== undefined && x.token !== String(token || ""))) throw new Error("No encontramos esa cita");
+  if (!x || typeof token !== "string" || !token || x.token !== token) throw new Error("No encontramos esa cita");
+  return x;
+}
+/** Salón: solo se llama después de revisarClave(). */
+function buscarParaSalon(id){
+  const x = todas().filter(c => c.id === String(id || ""))[0];
+  if (!x) throw new Error("No encontramos esa cita");
   return x;
 }
 function verCita(id, token){ const x = buscar(id, token); return {ok:true, cita:sinToken(x), cfg:leerCfg()}; }
@@ -169,7 +176,7 @@ function cancelarPorClienta(id, token){
 }
 function cambiarPorSalon(id, estado, motivo){
   if (["confirmada", "rechazada", "cancelada"].indexOf(estado) < 0) throw new Error("Estado no válido");
-  const x = buscar(id); x.estado = estado; x.motivo = String(motivo || "").slice(0, 120); x.actualizada = ahoraTxt(); escribir(x);
+  const x = buscarParaSalon(id); x.estado = estado; x.motivo = String(motivo || "").slice(0, 120); x.actualizada = ahoraTxt(); escribir(x);
   if (x.correo){
     const nom = leerCfg().nombre, enlace = APP_URL + "#/cita/" + x.id + "/" + x.token;
     const txt = {confirmada:"¡Tu cita quedó CONFIRMADA! Te esperamos.", rechazada:"El salón no puede atenderte a esa hora." + (x.motivo ? " Motivo: " + x.motivo : "") + " Puedes pedir otra hora.", cancelada:"El salón canceló tu cita." + (x.motivo ? " Motivo: " + x.motivo : "")}[estado];

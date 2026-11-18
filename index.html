@@ -200,6 +200,7 @@ async function cargar(r, llave){
       if (!clave){ MEM.listo = ""; return vistaLogin(); }
       const j = await api({accion:"salon", clave}); MEM.cfg = j.cfg; MEM.citas = j.citas;
     } else if (r[0]==="cita"){
+      if (!r[1] || !r[2]) throw new Error("No encontramos esa cita");
       const j = await api({accion:"verCita", id:r[1], token:r[2]}); MEM.cita = j.cita; MEM.cfg = j.cfg;
     } else {
       const j = await api({accion:"publico"}); MEM.cfg = j.cfg; MEM.citas = j.ocupadas;
@@ -264,14 +265,14 @@ function vistaReservar(){
   const hoyTxt = ymd(new Date()), mis = EN_LINEA ? leer(K_MIS, []).filter(m => m.fecha >= hoyTxt) : [];
   let h = (mis.length ? `<div class="card"><h2>Tus citas</h2>` + mis.map(m => `<p style="margin:6px 0"><a href="${esc(m.href)}">${esc(m.icono)} ${esc(m.servicio)} · ${fechaLarga(m.fecha)} · ${hora12(m.hora)}</a></p>`).join("") + `</div>` : "") +
     `<div class="card"><h2>1. ¿Qué te quieres hacer?</h2><div class="menu">` +
-    srv.map(x => `<button data-srv="${x.id}" class="${x.id===estado.srv?"sel":""}"><span class="ic">${esc(x.icono||"✨")}</span><span>${esc(x.nombre)}</span><span class="du">${durTxt(x.min)}</span></button>`).join("") +
+    srv.map(x => `<button data-srv="${esc(x.id)}" class="${x.id===estado.srv?"sel":""}"><span class="ic">${esc(x.icono||"✨")}</span><span>${esc(x.nombre)}</span><span class="du">${durTxt(x.min)}</span></button>`).join("") +
     `</div></div>`;
   if (s){
     h += `<div class="card"><h2>2. Escoge el día</h2>${calendario(s.min)}</div>`;
     if (estado.fecha){
       const libres = horasLibres(estado.fecha, s.min);
       h += `<div class="card"><h2>3. Escoge la hora</h2><p class="muted">${fechaLarga(estado.fecha)}</p>` +
-        (libres.length ? `<div class="slots">` + libres.map(t => `<button data-hora="${t}" class="${t===estado.hora?"sel":""}">${hora12(t)}</button>`).join("") + `</div>`
+        (libres.length ? `<div class="slots">` + libres.map(t => `<button data-hora="${esc(t)}" class="${t===estado.hora?"sel":""}">${hora12(t)}</button>`).join("") + `</div>`
                        : `<p>Ya no quedan horas libres este día. Prueba con otro.</p>`) + `</div>`;
     }
     if (estado.fecha && estado.hora) h += formDatos(s);
@@ -368,7 +369,7 @@ function vistaCita(cid){
     confirmada:"¡Listo! El salón confirmó tu cita. Te esperamos.",
     rechazada:"El salón no puede atenderte a esa hora." + (x.motivo ? " Motivo: " + x.motivo : "") + " Puedes pedir otra.",
     cancelada:"Esta cita fue cancelada."}[x.estado];
-  $("#app").innerHTML = `<div class="card"><span class="badge b-${x.estado}">${x.estado[0].toUpperCase()+x.estado.slice(1)}</span>
+  $("#app").innerHTML = `<div class="card"><span class="badge b-${esc(x.estado)}">${x.estado[0].toUpperCase()+x.estado.slice(1)}</span>
     <h2 style="margin-top:10px">${esc(x.icono)} ${esc(x.servicio)}</h2>
     <p><strong>${fechaLarga(x.fecha)}</strong> a las <strong>${hora12(x.hora)}</strong> (${durTxt(x.min)})</p>
     <p>${esc(txt)}</p>
@@ -424,7 +425,7 @@ function vistaSalon(tab){
   }
 }
 function tarjetaCita(x, acciones){
-  return `<div class="item"><div class="row" style="justify-content:space-between"><span class="t">${esc(x.icono)} ${esc(x.servicio)}</span><span class="badge b-${x.estado}">${x.estado}</span></div>
+  return `<div class="item"><div class="row" style="justify-content:space-between"><span class="t">${esc(x.icono)} ${esc(x.servicio)}</span><span class="badge b-${esc(x.estado)}">${x.estado}</span></div>
     <div>${fechaLarga(x.fecha)} · <strong>${hora12(x.hora)}</strong> – ${hora12(deMin(aMin(x.hora)+x.min))}</div>
     <div>👤 ${esc(x.nombre)} · 📱 <a href="tel:${esc(x.celular)}">${esc(x.celular)}</a>${x.correo?` · ✉️ ${esc(x.correo)}`:""}</div>
     ${x.nota?`<div class="muted">“${esc(x.nota)}”</div>`:""}
@@ -435,7 +436,7 @@ function vistaSolicitudes(){
   const p = citas().filter(x => x.estado==="pendiente").sort((a,b) => (a.fecha+a.hora).localeCompare(b.fecha+b.hora));
   if (!p.length) return `<div class="card"><h2>Sin solicitudes nuevas</h2><p class="muted">Cuando una clienta pida cita, aparece aquí para que la aceptes.</p></div>`;
   return `<div class="card"><h2>Por confirmar (${p.length})</h2>` + p.map(x => tarjetaCita(x,
-    `<button class="btn ok" data-ac="${x.id}">Aceptar</button><button class="btn bad" data-re="${x.id}">Rechazar</button>`)).join("") + `</div>`;
+    `<button class="btn ok" data-ac="${esc(x.id)}">Aceptar</button><button class="btn bad" data-re="${esc(x.id)}">Rechazar</button>`)).join("") + `</div>`;
 }
 let diaAgenda = ymd(new Date());
 function vistaAgenda(){
@@ -444,7 +445,7 @@ function vistaAgenda(){
   return `<div class="card"><h2>Agenda</h2><div class="row"><button class="btn sec" data-dmove="-1">‹</button>
     <input type="date" id="dAg" value="${diaAgenda}" style="max-width:180px"><button class="btn sec" data-dmove="1">›</button></div>
     <h3>${fechaLarga(diaAgenda)}</h3>` +
-    (del.length ? del.map(x => tarjetaCita(x, `<button class="btn bad" data-ca="${x.id}">Cancelar</button>`)).join("") : `<p class="muted">No hay citas confirmadas este día.</p>`) +
+    (del.length ? del.map(x => tarjetaCita(x, `<button class="btn bad" data-ca="${esc(x.id)}">Cancelar</button>`)).join("") : `<p class="muted">No hay citas confirmadas este día.</p>`) +
     `<p class="muted">Citas confirmadas de hoy en adelante: ${prox}</p></div>`;
 }
 function enlazarCitas(){
