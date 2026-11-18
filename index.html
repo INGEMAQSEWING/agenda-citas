@@ -211,7 +211,12 @@ function vistaReservar(){
   document.querySelectorAll("[data-dia]").forEach(b => b.onclick = () => { estado.fecha = b.dataset.dia; estado.hora = null; render(); bajar(".slots"); });
   document.querySelectorAll("[data-mes]").forEach(b => b.onclick = () => { estado.mes = (estado.mes||0) + (+b.dataset.mes); render(); });
   document.querySelectorAll("[data-hora]").forEach(b => b.onclick = () => { estado.hora = b.dataset.hora; estado.paso="datos"; render(); bajar("#fDatos"); });
-  const f = $("#fDatos"); if (f) f.onsubmit = enviarSolicitud;
+  const f = $("#fDatos");
+  if (f){
+    f.onsubmit = enviarSolicitud;
+    const limpiar = e => { const base = e.target.type==="checkbox" ? e.target.closest("label") : e.target; const er = base && base.nextElementSibling; if (er && er.classList.contains("err")) er.textContent = ""; };
+    f.addEventListener("input", limpiar); f.addEventListener("change", limpiar);
+  }
 }
 function bajar(sel){ const e = $(sel); if (e) e.scrollIntoView({behavior:"smooth", block:"center"}); }
 

@@ -1,0 +1,26 @@
+:root{--bg:#faf7f5;--card:#fff;--ink:#2b2326;--muted:#7a6d72;--line:#eadfe2;--brand:#b4416b;--soft:#f7e6ec;--ok:#2e7d4f;--bad:#b3261e;--warn:#9a6a00}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{background:var(--brand);color:#fff;padding:32px 16px 28px}
+header>*{max-width:900px;margin-left:auto;margin-right:auto}
+.eyebrow{margin:0 auto 6px;opacity:.85;font-size:.9rem;letter-spacing:.02em}
+h1{margin:0 auto;font-size:clamp(1.6rem,5vw,2.3rem);line-height:1.2}
+.intro{margin-top:10px;font-size:1.05rem;opacity:.95}
+main{max-width:900px;margin:0 auto;padding:20px 16px 48px}
+.indice{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 20px;margin-bottom:20px}
+.indice ol{margin:8px 0 0;padding-left:22px}
+.indice a{color:var(--brand)}
+.nota{background:var(--soft);border-radius:12px;padding:12px 16px}
+.paso{display:grid;grid-template-columns:300px 1fr;gap:28px;align-items:start;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin:18px 0}
+.paso img{width:100%;border-radius:12px;border:1px solid var(--line);box-shadow:0 4px 18px #2b232614}
+.paso h2{margin:6px 0 10px;font-size:1.3rem}
+.paso ul{padding-left:20px}.paso li{margin:4px 0}
+.num{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--brand);color:#fff;font-weight:700}
+.tip{background:#fff8e6;border-left:4px solid #e8b100;padding:10px 12px;border-radius:8px;font-size:.95rem}
+.rojo{color:var(--bad)}.verde{color:var(--ok)}.gris{color:#999}
+.badge{display:inline-block;padding:1px 10px;border-radius:99px;font-size:.85rem;font-weight:600}
+.badge.pend{background:#fff3d6;color:var(--warn)}.badge.ok{background:#e5f4ea;color:var(--ok)}.badge.no{background:#fde7e5;color:var(--bad)}
+.final{background:var(--ink);color:#fff;border-radius:16px;padding:20px 24px;margin-top:24px}
+.final h2{margin-top:0}.final .muted{color:#d9cdd1;font-size:.9rem}
+@media (max-width:700px){.paso{grid-template-columns:1fr;gap:14px;padding:16px}.paso img{max-width:340px;margin:0 auto;display:block}}
+@media print{body{background:#fff}.paso{break-inside:avoid;box-shadow:none}header{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
