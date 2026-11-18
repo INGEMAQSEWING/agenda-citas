@@ -87,6 +87,7 @@ input[type=checkbox]{width:auto}
 <main id="app"></main>
 <div id="toast" class="toast" hidden></div>
 
+<script src="salones.js"></script>
 <script>
 /* ===== Datos (versión de prueba: se guardan en este navegador) ===== */
 const K_CFG = "agenda.config", K_CITAS = "agenda.citas";
@@ -115,13 +116,28 @@ function cfgInicial(){
 }
 function leer(k, def){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch(e){ return def; } }
 function guardar(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch(e){ toast("No se pudo guardar en este navegador."); return false; } }
+/* Modo en línea: el link lleva ?s=<salón> y salones.js dice dónde está el programa de ese salón.
+   Sin ?s= la página funciona en modo de prueba (todo en este navegador). */
+const SLUG = (new URLSearchParams(location.search).get("s") || "").toLowerCase().replace(/[^a-z0-9-]/g, "");
+const API = SLUG && window.SALONES ? (SALONES[SLUG] || "") : "";
+const EN_LINEA = !!SLUG;
+const MEM = {cfg:null, citas:[], cita:null, listo:""};
+const K_CLAVE = "agenda.clave." + SLUG, K_MIS = "agenda.miscitas." + SLUG;
+async function api(p){
+  if (!API) throw new Error("Este salón no existe o el link está mal escrito");
+  const r = await fetch(API, {method:"POST", body:JSON.stringify(p)});
+  const j = await r.json();
+  if (!j.ok) throw new Error(j.error || "Error del servidor");
+  return j;
+}
 let cfgMem = null;
 function cfg(){
+  if (EN_LINEA) return MEM.cfg || {nombre:"Agenda", mensaje:"", servicios:[], horario:{}, descanso:{}};
   const g = leer(K_CFG, null); if (g) return g;
   if (!cfgMem){ cfgMem = cfgInicial(); guardar(K_CFG, cfgMem); }
   return cfgMem;
 }
-function citas(){ return leer(K_CITAS, []); }
+function citas(){ return EN_LINEA ? MEM.citas : leer(K_CITAS, []); }
 function id(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 
 /* ===== Utilidades ===== */
@@ -143,7 +159,7 @@ function horasLibres(fecha, min, ignorarId){
   if (!h || !h.abierto) return [];
   const ini = aMin(h.desde), fin = aMin(h.hasta), paso = Math.max(5, +c.intervalo||30);
   const ahora = new Date(), limite = ahora.getTime() + (+c.avisoMinHoras||0)*3600e3;
-  const ocupadas = citas().filter(x => x.fecha===fecha && (x.estado==="pendiente"||x.estado==="confirmada") && x.id!==ignorarId);
+  const ocupadas = citas().filter(x => x.fecha===fecha && (x.estado==="pendiente"||x.estado==="confirmada") && (!ignorarId || x.id!==ignorarId));
   const res = [];
   for (let t = ini; t + min <= fin; t += paso){
     if (c.descanso && c.descanso.activo){
@@ -162,13 +178,65 @@ function horasLibres(fecha, min, ignorarId){
 /* ===== Router ===== */
 function ruta(){ return (location.hash.replace(/^#\/?/,"") || "reservar").split("/"); }
 function render(){
-  const r = ruta(), c = cfg();
+  const r = ruta();
+  if (EN_LINEA){
+    const llave = r[0]==="salon" ? "salon" : r.join("/");
+    if (MEM.listo !== llave) return cargar(r, llave);
+  }
+  const c = cfg();
   $("#hNombre").textContent = c.nombre || "Agenda";
+  document.title = (c.nombre || "Agenda") + (r[0]==="salon" ? " · Panel" : " · Citas");
   document.querySelectorAll("#demo a").forEach(a => a.classList.toggle("on", r[0]===a.dataset.r));
   if (r[0]==="salon") return vistaSalon(r[1]||"solicitudes");
   if (r[0]==="cita") return vistaCita(r[1]);
   return vistaReservar();
 }
+async function cargar(r, llave){
+  MEM.listo = "cargando:" + llave;
+  $("#app").innerHTML = `<div class="card"><p class="muted">Cargando…</p></div>`;
+  try {
+    if (r[0]==="salon"){
+      const clave = leer(K_CLAVE, "");
+      if (!clave){ MEM.listo = ""; return vistaLogin(); }
+      const j = await api({accion:"salon", clave}); MEM.cfg = j.cfg; MEM.citas = j.citas;
+    } else if (r[0]==="cita"){
+      const j = await api({accion:"verCita", id:r[1], token:r[2]}); MEM.cita = j.cita; MEM.cfg = j.cfg;
+    } else {
+      const j = await api({accion:"publico"}); MEM.cfg = j.cfg; MEM.citas = j.ocupadas;
+    }
+    MEM.listo = llave; render();
+  } catch(e){
+    MEM.listo = "";
+    if (r[0]==="salon" && /clave/i.test(e.message) && !/todav/i.test(e.message)){ guardar(K_CLAVE, ""); return vistaLogin("Clave incorrecta. Intenta de nuevo."); }
+    const red = e instanceof TypeError;   // fetch falló: sin internet o servidor caído
+    $("#app").innerHTML = red
+      ? `<div class="card"><h2>No hay conexión</h2><p class="muted">Revisa tu internet e intenta otra vez.</p><button class="btn" id="bRe">Reintentar</button></div>`
+      : `<div class="card"><h2>${esc(e.message)}</h2>${r[0]!=="reservar" ? `<p><a href="#/reservar">Ir a pedir una cita</a></p>` : `<p class="muted">Pide al salón que te envíe el link otra vez.</p>`}</div>`;
+    const bRe = $("#bRe"); if (bRe) bRe.onclick = render;
+  }
+}
+function vistaLogin(msg){
+  $("#hNombre").textContent = "Panel del salón"; $("#hSub").textContent = "";
+  $("#app").innerHTML = `<form class="card" id="fLogin"><h2>Entrar al panel del salón</h2>
+    <label for="lClave">Clave</label><input id="lClave" type="password" autocomplete="current-password">
+    <div class="err">${esc(msg||"")}</div>
+    <div class="row" style="margin-top:12px"><button class="btn">Entrar</button></div>
+    <p class="muted">La clave queda guardada en este celular para no pedírtela cada vez.</p></form>`;
+  $("#lClave").focus();
+  $("#fLogin").onsubmit = e => { e.preventDefault(); const v = $("#lClave").value.trim(); if (!v) return; guardar(K_CLAVE, v); render(); };
+}
+/* El panel del salón se actualiza solo cada 40 segundos y avisa si llega una solicitud nueva */
+setInterval(async () => {
+  if (!EN_LINEA || ruta()[0]!=="salon" || document.hidden || MEM.listo!=="salon") return;
+  if (ruta()[1]==="config" || document.querySelector(".motivo") || document.querySelector("[data-seguro]")) return;
+  try {
+    const j = await api({accion:"salon", clave:leer(K_CLAVE,"")});
+    const pend = l => l.filter(x => x.estado==="pendiente").length, antes = pend(MEM.citas);
+    MEM.cfg = j.cfg; MEM.citas = j.citas;
+    if (pend(j.citas) > antes){ toast("🔔 Nueva solicitud de cita"); avisoSistema("Nueva solicitud de cita"); }
+    render();
+  } catch(e){}
+}, 40000);
 addEventListener("hashchange", () => { estado = {}; borrador = null; render(); });
 addEventListener("storage", e => {
   if (e.key !== K_CITAS && e.key !== K_CFG) return;
@@ -193,7 +261,9 @@ function vistaReservar(){
     return;
   }
   const s = srv.find(x => x.id===estado.srv);
-  let h = `<div class="card"><h2>1. ¿Qué te quieres hacer?</h2><div class="menu">` +
+  const hoyTxt = ymd(new Date()), mis = EN_LINEA ? leer(K_MIS, []).filter(m => m.fecha >= hoyTxt) : [];
+  let h = (mis.length ? `<div class="card"><h2>Tus citas</h2>` + mis.map(m => `<p style="margin:6px 0"><a href="${esc(m.href)}">${esc(m.icono)} ${esc(m.servicio)} · ${fechaLarga(m.fecha)} · ${hora12(m.hora)}</a></p>`).join("") + `</div>` : "") +
+    `<div class="card"><h2>1. ¿Qué te quieres hacer?</h2><div class="menu">` +
     srv.map(x => `<button data-srv="${x.id}" class="${x.id===estado.srv?"sel":""}"><span class="ic">${esc(x.icono||"✨")}</span><span>${esc(x.nombre)}</span><span class="du">${durTxt(x.min)}</span></button>`).join("") +
     `</div></div>`;
   if (s){
@@ -253,7 +323,7 @@ function formDatos(s){
     <p class="muted">El salón revisa tu solicitud y te confirma.</p></form>`;
 }
 
-function enviarSolicitud(ev){
+async function enviarSolicitud(ev){
   ev.preventDefault();
   const c = cfg(), s = c.servicios.find(x => x.id===estado.srv);
   const nom = $("#dNom").value.trim().replace(/\s+/g," "), cel = $("#dCel").value.replace(/[\s\-().]/g,"").replace(/^\+?57/,"");
@@ -265,6 +335,20 @@ function enviarSolicitud(ev){
   marca("#eMail", !mail || /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(mail) ? "" : "Ese correo no parece correcto.");
   marca("#eOk", $("#dOk").checked ? "" : "Necesitamos tu autorización para agendar.");
   if (!bien) return;
+  if (EN_LINEA){
+    const btn = $("#fDatos button[type=submit]"); btn.disabled = true; btn.textContent = "Enviando…";
+    try {
+      const j = await api({accion:"pedir", cita:{servicioId:s.id, fecha:estado.fecha, hora:estado.hora, nombre:nom, celular:cel, correo:mail, nota}});
+      guardar("agenda.misdatos", {nombre:nom, celular:cel, correo:mail});
+      const mis = leer(K_MIS, []); mis.unshift({href:"#/cita/"+j.id+"/"+j.token, fecha:estado.fecha, hora:estado.hora, servicio:s.nombre, icono:s.icono}); guardar(K_MIS, mis.slice(0, 10));
+      estado = {}; location.hash = "#/cita/" + j.id + "/" + j.token;
+    } catch(e){
+      toast(e.message);
+      if (/ocup/i.test(e.message)){ estado.hora = null; estado.paso = null; MEM.listo = ""; render(); }
+      else { btn.disabled = false; btn.textContent = "Pedir la cita"; }
+    }
+    return;
+  }
   if (!s || !horasLibres(estado.fecha, s.min).includes(estado.hora)){
     toast("Esa hora se acaba de ocupar. Escoge otra."); estado.hora = null; estado.paso = null; render(); return;
   }
@@ -278,7 +362,7 @@ function enviarSolicitud(ev){
 
 /* ===== Vista clienta: estado de mi cita ===== */
 function vistaCita(cid){
-  const x = citas().find(c => c.id===cid); $("#hSub").textContent = "Tu cita";
+  const x = EN_LINEA ? MEM.cita : citas().find(c => c.id===cid); $("#hSub").textContent = "Tu cita";
   if (!x){ $("#app").innerHTML = `<div class="card"><h2>No encontramos esa cita</h2><p><a href="#/reservar">Pedir una cita</a></p></div>`; return; }
   const txt = {pendiente:"Tu solicitud llegó al salón. Te avisamos cuando la confirmen.",
     confirmada:"¡Listo! El salón confirmó tu cita. Te esperamos.",
@@ -302,10 +386,18 @@ function bajarIcs(x){
     "BEGIN:VALARM","TRIGGER:-PT2H","ACTION:DISPLAY","DESCRIPTION:Recordatorio de tu cita","END:VALARM","END:VEVENT","END:VCALENDAR"].join("\r\n");
   const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([ics],{type:"text/calendar"})); a.download = "mi-cita.ics"; a.click();
 }
-function cambiarEstado(cid, est, motivo){
-  const t = citas(), x = t.find(c => c.id===cid); if (!x) return;
+async function cambiarEstado(cid, est, motivo){
+  if (EN_LINEA){
+    try {
+      const r = ruta();
+      if (r[0]==="cita") await api({accion:"cancelarCita", id:cid, token:r[2]});
+      else await api({accion:"estado", clave:leer(K_CLAVE,""), id:cid, estado:est, motivo:motivo||""});
+      MEM.listo = ""; render(); return true;
+    } catch(e){ toast("No se pudo: " + e.message); return false; }
+  }
+  const t = citas(), x = t.find(c => c.id===cid); if (!x) return false;
   x.estado = est; if (motivo !== undefined) x.motivo = motivo; x.actualizada = new Date().toISOString();
-  guardar(K_CITAS, t); render();
+  guardar(K_CITAS, t); render(); return true;
 }
 
 /* ===== Vista salón ===== */
@@ -316,11 +408,16 @@ function vistaSalon(tab){
     <a href="#/salon/solicitudes" class="${tab==="solicitudes"?"on":""}">Solicitudes${pend?`<span class="cnt">${pend}</span>`:""}</a>
     <a href="#/salon/agenda" class="${tab==="agenda"?"on":""}">Agenda</a>
     <a href="#/salon/config" class="${tab==="config"?"on":""}">Configuración</a></nav>`;
-  if (tab==="config") h += vistaConfig(c);
+  const linkCli = location.origin + location.pathname + "?s=" + SLUG;
+  if (tab==="config") h += (EN_LINEA ? `<div class="card"><h2>Link para tus clientas</h2><p class="muted">Ponlo en tu Instagram o mándalo por WhatsApp.</p>
+      <div class="row"><input id="lnk" value="${esc(linkCli)}" readonly style="flex:1"><button type="button" class="btn sec" id="bCop">Copiar</button></div>
+      <p style="margin-top:12px"><button type="button" class="btn sec" id="bSalir">Salir del panel en este celular</button></p></div>` : "") + vistaConfig(c);
   else if (tab==="agenda") h += vistaAgenda();
   else h += vistaSolicitudes();
   $("#app").innerHTML = h;
   if (tab==="config") enlazarConfig();
+  const bCop = $("#bCop"); if (bCop) bCop.onclick = () => { const i = $("#lnk"); i.select(); (navigator.clipboard ? navigator.clipboard.writeText(i.value) : Promise.reject()).then(() => toast("Link copiado"), () => { document.execCommand("copy"); toast("Link copiado"); }); };
+  const bSal = $("#bSalir"); if (bSal) bSal.onclick = () => { guardar(K_CLAVE, ""); MEM.listo = ""; render(); };
   enlazarCitas();
   if ("Notification" in window && Notification.permission==="default" && !vistaSalon.pidio){
     vistaSalon.pidio = true; try { Notification.requestPermission(); } catch(e){}
@@ -355,18 +452,18 @@ function enlazarCitas(){
     const x = citas().find(c => c.id===b.dataset.ac);
     const choque = citas().filter(o => o.id!==x.id && o.estado==="confirmada" && o.fecha===x.fecha && aMin(x.hora) < aMin(o.hora)+o.min && aMin(x.hora)+x.min > aMin(o.hora)).length;
     if (choque >= Math.max(1, +cfg().simultaneas||1) && !b.dataset.seguro){ b.dataset.seguro = 1; b.textContent = "Se cruza con otra cita. ¿Aceptar igual?"; return; }
-    cambiarEstado(x.id, "confirmada"); toast("Cita confirmada");
+    b.disabled = true; cambiarEstado(x.id, "confirmada").then(ok => { if (ok) toast("Cita confirmada"); else b.disabled = false; });
   });
   document.querySelectorAll("[data-re]").forEach(b => b.onclick = () => {
     const cont = b.parentElement;
     if (cont.querySelector(".motivo")) return;
     cont.insertAdjacentHTML("afterend", `<div class="motivo row" style="margin-top:8px"><input placeholder="Motivo (opcional), ej: ese día no hay cupo" maxlength="120" style="flex:1"><button class="btn bad">Rechazar</button></div>`);
     const m = cont.nextElementSibling; m.querySelector("input").focus();
-    m.querySelector("button").onclick = () => { cambiarEstado(b.dataset.re, "rechazada", m.querySelector("input").value.trim()); toast("Solicitud rechazada"); };
+    m.querySelector("button").onclick = ev => { const bt = ev.currentTarget; bt.disabled = true; cambiarEstado(b.dataset.re, "rechazada", m.querySelector("input").value.trim()).then(ok => { if (ok) toast("Solicitud rechazada"); else bt.disabled = false; }); };
   });
   document.querySelectorAll("[data-ca]").forEach(b => b.onclick = () => {
     if (!b.dataset.seguro){ b.dataset.seguro = 1; b.textContent = "Toca otra vez para cancelar"; return; }
-    cambiarEstado(b.dataset.ca, "cancelada");
+    b.disabled = true; cambiarEstado(b.dataset.ca, "cancelada").then(ok => { if (!ok) b.disabled = false; });
   });
   const da = $("#dAg"); if (da) da.onchange = () => { if (da.value){ diaAgenda = da.value; render(); } };
   document.querySelectorAll("[data-dmove]").forEach(b => b.onclick = () => { const d = deYmd(diaAgenda); d.setDate(d.getDate() + +b.dataset.dmove); diaAgenda = ymd(d); render(); });
@@ -444,10 +541,18 @@ function enlazarConfig(){
     if (!b.nombre){ b.nombre = "Mi Salón"; }
     if (!bien){ toast("Revisa lo que está en rojo"); return; }
     b.servicios = llenos;
+    if (EN_LINEA){
+      const bt = $("#fCfg button[type=submit]"); bt.disabled = true; bt.textContent = "Guardando…";
+      api({accion:"guardarCfg", clave:leer(K_CLAVE,""), cfg:b})
+        .then(() => { MEM.cfg = JSON.parse(JSON.stringify(b)); borrador = null; toast("Configuración guardada ✔"); render(); })
+        .catch(e => { toast("No se pudo guardar: " + e.message); bt.disabled = false; bt.textContent = "Guardar cambios"; });
+      return;
+    }
     if (guardar(K_CFG, b)){ borrador = null; toast("Configuración guardada ✔"); render(); }
   };
 }
 
+if (EN_LINEA) { const dm = document.getElementById("demo"); if (dm) dm.remove(); }
 render();
 </script>
 </body>
